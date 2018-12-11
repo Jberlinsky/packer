@@ -369,7 +369,7 @@ func ImportVmcxVirtualMachine(importPath string, vmName string, harddrivePath st
 	ram int64, switchName string, copyTF bool) error {
 
 	var script = `
-param([string]$importPath, [string]$vmName, [string]$harddrivePath, [long]$memoryStartupBytes, [string]$switchName, [bool]$copy)
+param([string]$importPath, [string]$vmName, [string]$harddrivePath, [long]$memoryStartupBytes, [string]$switchName, [string]$copy)
 
 $VirtualHarddisksPath = Join-Path -Path $importPath -ChildPath 'Virtual Hard Disks'
 if (!(Test-Path $VirtualHarddisksPath)) {
@@ -395,7 +395,13 @@ if (!$VirtualMachinePath){
     $VirtualMachinePath = Get-ChildItem -Path $importPath -Filter *.xml -Recurse -ErrorAction SilentlyContinue | select -First 1 | %{$_.FullName}
 }
 
-$compatibilityReport = Hyper-V\Compare-VM -Path $VirtualMachinePath -VirtualMachinePath $importPath -SmartPagingFilePath $importPath -SnapshotFilePath $importPath -VhdDestinationPath $VirtualHarddisksPath -GenerateNewId -Copy:$copy
+$copyBool = $false
+switch($copy) {
+    "true" { $copyBool = $true }
+    default { $copyBool = $false }
+}
+
+$compatibilityReport = Hyper-V\Compare-VM -Path $VirtualMachinePath -VirtualMachinePath $importPath -SmartPagingFilePath $importPath -SnapshotFilePath $importPath -VhdDestinationPath $VirtualHarddisksPath -GenerateNewId -Copy:$false
 if ($vhdPath){
 	Copy-Item -Path $harddrivePath -Destination $vhdPath
 	$existingFirstHarddrive = $compatibilityReport.VM.HardDrives | Select -First 1
@@ -415,7 +421,6 @@ if ($vm) {
     $result = Hyper-V\Rename-VM -VM $vm -NewName $VMName
 }
 	`
-
 	var ps powershell.PowerShellCmd
 	err := ps.Run(script, importPath, vmName, harddrivePath, strconv.FormatInt(ram, 10), switchName, strconv.FormatBool(copyTF))
 
